@@ -1,0 +1,10 @@
+.classpath
+.project
+*.log
+*.pcap
+*.crc
+.settings/
+target/
+input/
+output/
+
