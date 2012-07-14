@@ -12,8 +12,8 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
-import jxta.jnetpcap.socket.SocketStatisticsMapper;
-import jxta.jnetpcap.socket.SocketStatisticsReducer;
+import jxta.jnetpcap.socket.JxtaSocketPerfMapper;
+import jxta.jnetpcap.socket.JxtaSocketPerfReducer;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -27,11 +27,18 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.lib.MultipleTextOutputFormat;
 
 @SuppressWarnings("deprecation")
-public class JxtaSocketStatisticsDriver {
+public class JxtaSocketPerfDriver {
 
-	private static String inputDir = "/home/thiago/tmp/_/";	 	
+	private static int executions = 1;
+	private static String inputDir = "/home/thiago/tmp/_/";	
 
 	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {
+		
+		if(args != null && args.length == 2){
+			executions = Integer.valueOf(args[0]);
+			inputDir = args[1];
+		}
+		
 		Configuration conf = new Configuration();
 		ArrayList<Long> times = new ArrayList<Long>();
 		
@@ -45,32 +52,27 @@ public class JxtaSocketStatisticsDriver {
 		}
 		inputDir = dstDir;
 		
-		for (int k = 0; k < 30; k++) {
-			
-			JobConf job = new JobConf(JxtaSocketStatisticsDriver.class);
-			job.setJarByClass(SocketStatisticsMapper.class);
-
-			System.out.println("### From: " + inputDir);
-			System.out.println("### To: " + dstDir);
+		for (int k = 0; k < executions; k++) {			
+			JobConf job = new JobConf(JxtaSocketPerfDriver.class);
+			job.setJarByClass(JxtaSocketPerfMapper.class);
 
 			// Input
-			Path inputPath = new Path(inputDir);
-			FileInputFormat.setInputPaths(job,inputPath);
+			FileInputFormat.setInputPaths(job,new Path(inputDir));
 			job.setInputFormat(PcapInputFormat.class);
 			job.setOutputKeyClass(Text.class);
 			job.setOutputValueClass(SortedMapWritable.class);
 
 			//MapReduce Classes
-			job.setMapperClass(SocketStatisticsMapper.class);
-			job.setReducerClass(SocketStatisticsReducer.class);
+			job.setMapperClass(JxtaSocketPerfMapper.class);
+			job.setReducerClass(JxtaSocketPerfReducer.class);
 			//		job.setNumReduceTasks(3);
 
 			// Output
 			job.setOutputFormat(MultipleFilesOutputFormat.class);			
-			long t0,t1;			
 			
 			Path outputPath = new Path("output/1.9GB." + System.currentTimeMillis());
 			FileOutputFormat.setOutputPath(job, outputPath);
+			long t0,t1;
 			t0 = System.currentTimeMillis();
 			JobClient.runJob(job);
 			t1 = System.currentTimeMillis();
@@ -87,12 +89,19 @@ public class JxtaSocketStatisticsDriver {
 		//		updateFiles(outputPath);
 	}
 
-	public static void updateFiles(Path outputPath) throws FileNotFoundException, IOException {
+	private static class MultipleFilesOutputFormat extends MultipleTextOutputFormat<Text,Text>	{
+		protected String generateFileNameForKeyValue(Text key,Text value,String filename){
+			return key.toString();
+		}
+	}
+	
+	@SuppressWarnings("unused")
+	private static void updateFiles(Path outputPath) throws FileNotFoundException, IOException {
 		int i = 0;
 		long min = Long.MAX_VALUE;
 		String line = null;
 
-		File rttFile = new File(outputPath.toUri() + "/" + SocketStatisticsMapper.jxtaRelyRttKey);				
+		File rttFile = new File(outputPath.toUri() + "/" + JxtaSocketPerfMapper.jxtaRelyRttKey);				
 		BufferedReader rttBuffer = new BufferedReader(new FileReader(rttFile));        
 		while((line = rttBuffer.readLine()) != null) {
 			i++;
@@ -107,7 +116,7 @@ public class JxtaSocketStatisticsDriver {
 		System.out.println("### Min: " + min);
 		setContents(rttFile,min);
 
-		File arrivalFile = new File(outputPath.toUri() + "/" + SocketStatisticsMapper.jxtaArrivalKey);
+		File arrivalFile = new File(outputPath.toUri() + "/" + JxtaSocketPerfMapper.jxtaArrivalKey);
 		i = 0;
 		BufferedReader arrivalBuffer = new BufferedReader(new FileReader(arrivalFile));        
 		while((line = arrivalBuffer.readLine()) != null) {
@@ -123,7 +132,7 @@ public class JxtaSocketStatisticsDriver {
 		System.out.println("### Min: " + min);
 		setContents(arrivalFile,min);
 
-		File reqFile = new File(outputPath.toUri() + "/" + SocketStatisticsMapper.jxtaSocketReqKey);
+		File reqFile = new File(outputPath.toUri() + "/" + JxtaSocketPerfMapper.jxtaSocketReqKey);
 		i = 0;
 		BufferedReader reqBuffer = new BufferedReader(new FileReader(reqFile));        
 		while((line = reqBuffer.readLine()) != null) {
@@ -139,7 +148,7 @@ public class JxtaSocketStatisticsDriver {
 		System.out.println("### Min: " + min);
 		setContents(reqFile,min);
 
-		File remFile = new File(outputPath.toUri() + "/" + SocketStatisticsMapper.jxtaSocketRemKey);
+		File remFile = new File(outputPath.toUri() + "/" + JxtaSocketPerfMapper.jxtaSocketRemKey);
 		i = 0;
 		BufferedReader remBuffer = new BufferedReader(new FileReader(remFile));        
 		while((line = remBuffer.readLine()) != null) {
@@ -154,12 +163,6 @@ public class JxtaSocketStatisticsDriver {
 		remBuffer.close();
 		System.out.println("### Min: " + min);
 		setContents(remFile,min);
-	}
-
-	private static class MultipleFilesOutputFormat extends MultipleTextOutputFormat<Text,Text>	{
-		protected String generateFileNameForKeyValue(Text key,Text value,String filename){
-			return key.toString();
-		}
 	}
 
 	private static void setContents(File file, Long value) throws FileNotFoundException, IOException {
@@ -180,9 +183,9 @@ public class JxtaSocketStatisticsDriver {
 		File tempFile = new File(file.getAbsolutePath() + ".txt");
 		PrintWriter pw = new PrintWriter(new FileWriter(tempFile));
 
-		BufferedReader br = new BufferedReader(new FileReader(file));
-		br.readLine();
-		while((line = br.readLine()) != null) {
+		BufferedReader buffer = new BufferedReader(new FileReader(file));
+		buffer.readLine();
+		while((line = buffer.readLine()) != null) {
 			StringTokenizer tokenizer = new StringTokenizer(line, " ");
 			long tmp = Long.valueOf(tokenizer.nextToken());
 			tmp = tmp - value;
@@ -193,7 +196,7 @@ public class JxtaSocketStatisticsDriver {
 			pw.println(str);
 			pw.flush();
 		}
-		br.close();
+		buffer.close();
 		pw.close();
 	}
 

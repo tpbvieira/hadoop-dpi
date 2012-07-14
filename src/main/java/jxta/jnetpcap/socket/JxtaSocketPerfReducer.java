@@ -16,7 +16,7 @@ import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.Reporter;
 
 @SuppressWarnings("deprecation")
-public class SocketStatisticsReducer extends MapReduceBase implements Reducer<Text, SortedMapWritable, Text, Text> {
+public class JxtaSocketPerfReducer extends MapReduceBase implements Reducer<Text, SortedMapWritable, Text, Text> {
 
 	@SuppressWarnings("rawtypes")
 	@Override
@@ -24,7 +24,7 @@ public class SocketStatisticsReducer extends MapReduceBase implements Reducer<Te
 
 		StringBuilder strOutput = new StringBuilder();
 
-		if(key.equals(SocketStatisticsMapper.jxtaArrivalKey)){// Arrival count			
+		if(key.equals(JxtaSocketPerfMapper.jxtaArrivalKey)){// Arrival count			
 			SortedMapWritable tmp = null;
 			while(values.hasNext()){
 				tmp = values.next();
@@ -39,7 +39,7 @@ public class SocketStatisticsReducer extends MapReduceBase implements Reducer<Te
 			output.collect(new Text(key.toString()), new Text(strOutput.toString()));
 			tmp.clear();
 		}else
-			if(key.equals(SocketStatisticsMapper.jxtaRelyRttKey)){// RTT
+			if(key.equals(JxtaSocketPerfMapper.jxtaRelyRttKey)){// RTT
 				SortedMapWritable tmp = null;
 				while(values.hasNext()){
 					tmp = values.next();
@@ -58,7 +58,7 @@ public class SocketStatisticsReducer extends MapReduceBase implements Reducer<Te
 				output.collect(new Text(key.toString()), new Text(strOutput.toString()));	
 				tmp.clear();
 			}else
-				if(key.equals(SocketStatisticsMapper.jxtaSocketReqKey)){// Socket request count			
+				if(key.equals(JxtaSocketPerfMapper.jxtaSocketReqKey)){// Socket request count			
 					SortedMapWritable tmp = null;
 					while(values.hasNext()){
 						tmp = values.next();
@@ -73,7 +73,7 @@ public class SocketStatisticsReducer extends MapReduceBase implements Reducer<Te
 					output.collect(new Text(key.toString()), new Text(strOutput.toString()));
 					tmp.clear();
 				}else
-					if(key.equals(SocketStatisticsMapper.jxtaSocketRemKey)){// Socket response count			
+					if(key.equals(JxtaSocketPerfMapper.jxtaSocketRemKey)){// Socket response count			
 						SortedMapWritable tmp = null;
 						while(values.hasNext()){
 							tmp = values.next();

@@ -44,6 +44,11 @@
 	</build>
 	<dependencies>
 		<dependency>
+			<groupId>util</groupId>
+			<artifactId>FileUtil</artifactId>
+			<version>0.0.1</version>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-core</artifactId>
 			<version>0.20.2</version>
@@ -54,22 +59,22 @@
 			<artifactId>jnetpcap-jxta</artifactId>
 			<version>0.0.2</version>
 		</dependency>
+		<!-- Gson: Java to Json conversion -->
 		<dependency>
 			<groupId>org.codehaus.jackson</groupId>
 			<artifactId>jackson-mapper-asl</artifactId>
 			<version>1.0.1</version>
 		</dependency>
-		<!-- Gson: Java to Json conversion -->
+		<dependency>
+			<groupId>org.codehaus.jackson</groupId>
+			<artifactId>jackson-core-asl</artifactId>
+			<version>1.9.7</version>
+		</dependency>
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 			<version>2.2.1</version>
 			<scope>compile</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.codehaus.jackson</groupId>
-			<artifactId>jackson-core-asl</artifactId>
-			<version>1.9.7</version>
 		</dependency>
 	</dependencies>
 </project>
