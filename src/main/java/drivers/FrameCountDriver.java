@@ -22,8 +22,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 public class FrameCountDriver {
 
-	private static final String localInputPcap = "/home/thiago/tmp/pcap-traces/dropbox/";
-//	private static final String localInputPcap = "/home/thiago/tmp/pcap-traces/jxta-sample/";
+	private static final String localInputPcap = "/home/thiago/tmp/pcap-traces/_/";
 	private static final String localInput = "input/";
 	private static final String localOutput = "output/";
 	private static final String inputFile = "fileList.txt";

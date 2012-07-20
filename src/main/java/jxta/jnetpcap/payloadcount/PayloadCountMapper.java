@@ -20,17 +20,18 @@ public class PayloadCountMapper extends Mapper<LongWritable, Text, Text, IntWrit
 	private final static Text payloadLen = new Text("payloadLen");	
 
 	protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {				
-		
+		System.out.println("### Value:" + value);
 		Configuration conf = new Configuration();
 		FileSystem hdfs = FileSystem.get(conf);		
 		Path srcPath = new Path(hdfs.getWorkingDirectory() + "/" + value);
 		Path dstPath = new Path("/tmp/");
-		hdfs.copyToLocalFile(srcPath, dstPath);		
+		System.out.println("### hdfsSrc:" + srcPath);
+		System.out.println("### localDst:" + dstPath);
+		hdfs.copyToLocalFile(srcPath, dstPath);
 		
-		System.out.println("###################### " + "/tmp/" + value);
 		final Context ctx = context;
 		final StringBuilder errbuf = new StringBuilder();
-		final Pcap pcap = Pcap.openOffline("/tmp/"+value, errbuf);		
+		final Pcap pcap = Pcap.openOffline("/tmp/" + value, errbuf);		
 
 		if (pcap == null) {
 			throw new InterruptedException("Impossible create PCAP file");

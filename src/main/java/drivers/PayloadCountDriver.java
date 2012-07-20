@@ -22,34 +22,30 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 public class PayloadCountDriver {
 
-	private static final String inputPcap = "/home/thiago/tmp/pcap-traces/jxta-sample/";
-	private static final String input = "input/";
-	private static final String output = "output/";
+	private static final String pcapPath = "/home/thiago/tmp/_/";
+	private static final String inputPath = "input/";
+	private static final String outputPath = "output/";
 	
 	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {
 		Configuration conf = new Configuration();
-		Job job = new Job(conf, "jnetpcap.payloadcount");
+		Job job = new Job(conf, "PayloadCountDriver");
 
-		File inputList = new File(inputPcap);
-		String[] fileList = inputList.list();
+		File dir = new File(pcapPath);
+		String[] fileList = dir.list();
 
-		// Generate input with file's list
-		PrintWriter file = new PrintWriter(new BufferedWriter(new FileWriter(input + "fileList" + ".txt")));
-		for (int i = 0; i < fileList.length; i++) {
-			file.println(fileList[i]);
-		}
-		file.close();		
-		
-		// Copy local files into HDFS /
+		// Generate input with file's list and Copy local files into HDFS
+		PrintWriter file = new PrintWriter(new BufferedWriter(new FileWriter(inputPath + "fileList.txt")));
 		FileSystem hdfs = FileSystem.get(conf);
 		Path dstPath = new Path(hdfs.getWorkingDirectory() + "/");
 		for (int i = 0; i < fileList.length; i++) {
-			Path srcPath = new Path(inputPcap + fileList[i]);		
+			file.println(fileList[i]);
+			Path srcPath = new Path(pcapPath + fileList[i]);		
 			hdfs.copyFromLocalFile(srcPath, dstPath);
-		}		
-
+		}
+		file.close();
+		
 		// Input
-		FileInputFormat.setInputPaths(job, new Path(input));
+		FileInputFormat.setInputPaths(job, new Path(inputPath));
 		job.setInputFormatClass(TextInputFormat.class);
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(IntWritable.class);
@@ -59,9 +55,9 @@ public class PayloadCountDriver {
 		job.setReducerClass(PayloadCountReducer.class);
 
 		// Output
-		File outDir = new File(output);
+		File outDir = new File(outputPath);
 		outDir.renameTo(new File(Long.toString(System.currentTimeMillis())));
-		FileOutputFormat.setOutputPath(job, new Path(output));
+		FileOutputFormat.setOutputPath(job, new Path(outputPath));
 		job.setOutputFormatClass(TextOutputFormat.class);		
 
 		job.waitForCompletion(true);
