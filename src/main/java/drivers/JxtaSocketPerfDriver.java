@@ -16,85 +16,73 @@ import jxta.jnetpcap.socket.JxtaSocketPerfMapper;
 import jxta.jnetpcap.socket.JxtaSocketPerfReducer;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SortedMapWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.lib.MultipleTextOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-@SuppressWarnings("deprecation")
 public class JxtaSocketPerfDriver {
 
 	private static int executions = 1;
-	private static String inputDir = "/home/thiago/tmp/_/";	
+	private static String inputDir = "input/";	
 
 	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {
-		
+		// Arguments
 		if(args != null && args.length == 2){
 			executions = Integer.valueOf(args[0]);
 			inputDir = args[1];
 		}
-		
-		Configuration conf = new Configuration();
+
 		ArrayList<Long> times = new ArrayList<Long>();
-		
-		// Copy local files into HDFS
-		String[] files = new File(inputDir).list();
-		FileSystem hdfs = FileSystem.get(conf);
-		String dstDir = hdfs.getWorkingDirectory() + "/input/";
-		for (int i = 0; i < files.length; i++) {
-			Path srcFilePath = new Path(inputDir + files[i]);		
-			hdfs.copyFromLocalFile(srcFilePath, new Path(dstDir + files[i]));
-		}
-		inputDir = dstDir;
-		
 		for (int k = 0; k < executions; k++) {			
-			JobConf job = new JobConf(JxtaSocketPerfDriver.class);
+			Configuration conf = new Configuration();
+			Job job = new Job(conf, "JxtaSocketPerfDriver");
 			job.setJarByClass(JxtaSocketPerfMapper.class);
 
-			// Input
+			// Mapper
+			job.setMapperClass(JxtaSocketPerfMapper.class);
 			FileInputFormat.setInputPaths(job,new Path(inputDir));
-			job.setInputFormat(PcapInputFormat.class);
+			job.setInputFormatClass(PcapInputFormat.class);
 			job.setOutputKeyClass(Text.class);
 			job.setOutputValueClass(SortedMapWritable.class);
-
-			//MapReduce Classes
-			job.setMapperClass(JxtaSocketPerfMapper.class);
-			job.setReducerClass(JxtaSocketPerfReducer.class);
-			//		job.setNumReduceTasks(3);
-
-			// Output
-			job.setOutputFormat(MultipleFilesOutputFormat.class);			
 			
-			Path outputPath = new Path("output/1.9GB." + System.currentTimeMillis());
+			// Combiner
+//			job.setCombinerClass(JxtaSocketPerfCombiner.class);
+			
+			// Reducer
+			job.setReducerClass(JxtaSocketPerfReducer.class);
+			job.setOutputFormatClass(TextOutputFormat.class);
+			job.setNumReduceTasks(4);
+			Path outputPath = new Path("output/JxtaSocketPerfDriver_" + System.currentTimeMillis());
 			FileOutputFormat.setOutputPath(job, outputPath);
+			
+			// Execution
 			long t0,t1;
 			t0 = System.currentTimeMillis();
-			JobClient.runJob(job);
+			job.waitForCompletion(true);
 			t1 = System.currentTimeMillis();
-			times.add(t1-t0);
-			System.out.println("### " + k + "-Time: " + (t1-t0));	
+			times.add(t1 - t0);
+			System.out.println("### " + (++k) + "-Time: " + (t1-t0));	
 		}
 
 		System.out.println("### Times:");
 		for (Long time : times) {
 			System.out.println(time);
 		}
-
-		//process generated files
-		//		updateFiles(outputPath);
+		
 	}
 
+	@SuppressWarnings("unused")
 	private static class MultipleFilesOutputFormat extends MultipleTextOutputFormat<Text,Text>	{
 		protected String generateFileNameForKeyValue(Text key,Text value,String filename){
 			return key.toString();
 		}
 	}
-	
+
 	@SuppressWarnings("unused")
 	private static void updateFiles(Path outputPath) throws FileNotFoundException, IOException {
 		int i = 0;

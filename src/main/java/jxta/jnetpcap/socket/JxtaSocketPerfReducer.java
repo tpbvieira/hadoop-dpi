@@ -1,7 +1,6 @@
 package jxta.jnetpcap.socket;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.hadoop.io.ArrayWritable;
@@ -10,82 +9,82 @@ import org.apache.hadoop.io.SortedMapWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapreduce.Reducer;
 
-@SuppressWarnings("deprecation")
-public class JxtaSocketPerfReducer extends MapReduceBase implements Reducer<Text, SortedMapWritable, Text, Text> {
+public class JxtaSocketPerfReducer extends Reducer<Text, SortedMapWritable, LongWritable, LongWritable> {
 
 	@SuppressWarnings("rawtypes")
 	@Override
-	public void reduce(Text key, Iterator<SortedMapWritable> values, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {		
-
-		StringBuilder strOutput = new StringBuilder();
-
+	public void reduce(Text key, Iterable<SortedMapWritable> values, Context context) throws IOException {		
+		System.out.println("### JxtaSocketPerfReducer");
 		if(key.equals(JxtaSocketPerfMapper.jxtaArrivalKey)){// Arrival count			
 			SortedMapWritable tmp = null;
-			while(values.hasNext()){
-				tmp = values.next();
+			
+			for (SortedMapWritable value : values) {
+				System.out.println("###  " + key + " - " + value.size());
+				tmp = value;
 			}
 			Set<WritableComparable> arrivals = tmp.keySet();
 			for (WritableComparable arrivalTime : arrivals) {
-				strOutput.append("\n");
-				strOutput.append((LongWritable)arrivalTime);
-				strOutput.append(" ");
-				strOutput.append(((LongWritable)tmp.get(arrivalTime)).get());		
+				try {
+					context.write((LongWritable)arrivalTime, (LongWritable)tmp.get(arrivalTime));
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			}
-			output.collect(new Text(key.toString()), new Text(strOutput.toString()));
 			tmp.clear();
 		}else
 			if(key.equals(JxtaSocketPerfMapper.jxtaRelyRttKey)){// RTT
 				SortedMapWritable tmp = null;
-				while(values.hasNext()){
-					tmp = values.next();
+				for (SortedMapWritable value : values) {
+					System.out.println("###  " + key + " - " + value.size());
+					tmp = value;
 				}
 				Set<WritableComparable> times = tmp.keySet();
 				for (WritableComparable time : times) {
 					ArrayWritable rttsArray = (ArrayWritable)tmp.get(time);
 					Writable[] rtts = rttsArray.get();						
 					for (int j = 0; j < rtts.length; j++) {
-						strOutput.append("\n");
-						strOutput.append(time);
-						strOutput.append(" ");
-						strOutput.append(((LongWritable)rtts[j]).get());
+						try {
+							context.write((LongWritable)time, (LongWritable)rtts[j]);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
 					}
 				}
-				output.collect(new Text(key.toString()), new Text(strOutput.toString()));	
+					
 				tmp.clear();
 			}else
 				if(key.equals(JxtaSocketPerfMapper.jxtaSocketReqKey)){// Socket request count			
 					SortedMapWritable tmp = null;
-					while(values.hasNext()){
-						tmp = values.next();
+					for (SortedMapWritable value : values) {
+						System.out.println("###  " + key + " - " + value.size());
+						tmp = value;
 					}
 					Set<WritableComparable> requests = tmp.keySet();
 					for (WritableComparable requestTime : requests) {
-						strOutput.append("\n");
-						strOutput.append((LongWritable)requestTime);
-						strOutput.append(" ");
-						strOutput.append(((LongWritable)tmp.get(requestTime)).get());		
+						try {
+							context.write((LongWritable)requestTime, (LongWritable)tmp.get(requestTime));
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
 					}
-					output.collect(new Text(key.toString()), new Text(strOutput.toString()));
 					tmp.clear();
 				}else
 					if(key.equals(JxtaSocketPerfMapper.jxtaSocketRemKey)){// Socket response count			
 						SortedMapWritable tmp = null;
-						while(values.hasNext()){
-							tmp = values.next();
+						for (SortedMapWritable value : values) {
+							System.out.println("###  " + key + " - " + value.size());
+							tmp = value;
 						}
 						Set<WritableComparable> responses = tmp.keySet();
-						for (WritableComparable responseTime : responses) {
-							strOutput.append("\n");
-							strOutput.append((LongWritable)responseTime);
-							strOutput.append(" ");
-							strOutput.append(((LongWritable)tmp.get(responseTime)).get());		
-						}
-						output.collect(new Text(key.toString()), new Text(strOutput.toString()));
+						for (WritableComparable responseTime : responses) {							
+							try {
+								context.write((LongWritable)responseTime, (LongWritable)tmp.get(responseTime));
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+						}						
 						tmp.clear();
 					}
 

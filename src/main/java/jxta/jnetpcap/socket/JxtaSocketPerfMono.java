@@ -22,29 +22,41 @@ import org.jnetpcap.Pcap;
 
 import util.FileUtil;
 
-public class JxtaSocketPerf {
+public class JxtaSocketPerfMono {
 
 	public static final Text jxtaRelyRttKey = new Text("rtt");
-	public static final Text jxtaArrivalKey = new Text("arrival");
+	public static final Text jxtaArrivalKey = new Text("arv");
 	public static final Text jxtaSocketReqKey = new Text("req");
 	public static final Text jxtaSocketRemKey = new Text("rem");
-	
-	private static int executions = 1;
-	private static String inputDir = "/home/thiago/tmp/_/";	
 
-	/**
-	 * @param args
-	 * @throws IOException 
-	 */	
-	public static void main(String[] args) throws IOException {
-		
-		if(args != null && args.length == 2){
+	private static boolean isProgressive = false;
+	private static int executions = 1;
+	private static int limit = 1;
+	private static String inputDir = "/home/thiago/tmp/pcap-traces/jxtaSocket/3.5/128/";	
+	private static String outputDir = "output/JxtaSocketPerfMono_" + System.currentTimeMillis() + "/";
+
+	public static void main(String[] args) throws IOException {		
+
+		if(args != null && args.length >= 2){
 			executions = Integer.valueOf(args[0]);
 			inputDir = args[1];
+			isProgressive = (args.length > 2);
 		}
 		
-		for (int i = 0; i < executions; i++) {
-			execute();
+		if(isProgressive){
+			limit = Integer.valueOf(args[2]);
+			for (int i = 1; i <= limit; i++) {
+				System.out.println("\n### LimitInfo: " + i + " of " + limit);
+				System.out.println("### Executions: " + executions);
+				for (int j = 0; j < executions; j++) {
+					execute(i);
+				}	
+			}
+		}else{
+			limit = Integer.MAX_VALUE;
+			for (int j = 0; j < executions; j++) {
+				execute(limit);
+			}
 		}
 	}
 
@@ -53,19 +65,18 @@ public class JxtaSocketPerf {
 	 * @throws IOException 
 	 */	
 	@SuppressWarnings("rawtypes")
-	private static void execute() throws IOException {
+	private static void execute(int limit) throws IOException {
 		final StringBuilder errbuf = new StringBuilder();
 		final SortedMap<Integer,JxtaSocketFlow> dataFlows = new TreeMap<Integer,JxtaSocketFlow>();
 		final SortedMap<Integer,JxtaSocketFlow> ackFlows = new TreeMap<Integer,JxtaSocketFlow>();
+		File path = new File(inputDir);
 		Pcap pcap;
 
-		File path = new File(inputDir);
-
-		System.out.println("### Extracting flows");
 		long t0 = System.currentTimeMillis();
 		if(path.isDirectory()){
 			File[] files = FileUtil.listFiles(path);
-			for (int i = 0; i < files.length; i++) {
+			for (int i = 0; i < files.length && i < limit; i++) {
+				System.out.println("### File: " + files[i].getAbsolutePath());
 				pcap = Pcap.openOffline(files[i].getAbsolutePath(), errbuf);
 				if (pcap == null) {
 					throw new RuntimeException("Impossible to open PCAP file");
@@ -84,10 +95,8 @@ public class JxtaSocketPerf {
 			pcap.close();
 		}
 
-		System.out.println("\n### Generating statisticals");
 		Map <Text,SortedMapWritable> output = generateJxtaRttStatistics(dataFlows,ackFlows);
 
-		System.out.println("\n### Generating output");
 		StringBuilder strOutput = new StringBuilder();
 		SortedMapWritable tmp = output.get(jxtaArrivalKey);
 		Set<WritableComparable> arrivals = tmp.keySet();
@@ -97,8 +106,8 @@ public class JxtaSocketPerf {
 			strOutput.append(" ");
 			strOutput.append(((LongWritable)tmp.get(arrivalTime)).get());		
 		}
-		FileUtils.writeStringToFile(new File(jxtaArrivalKey.toString()), strOutput.toString());
-		
+		FileUtils.writeStringToFile(new File(outputDir + jxtaArrivalKey.toString()), strOutput.toString());
+
 		strOutput = new StringBuilder();
 		tmp = output.get(jxtaRelyRttKey);		
 		Set<WritableComparable> times = tmp.keySet();
@@ -112,8 +121,8 @@ public class JxtaSocketPerf {
 				strOutput.append(((LongWritable)rtts[j]).get());
 			}
 		}
-		FileUtils.writeStringToFile(new File(jxtaRelyRttKey.toString()), strOutput.toString());
-		
+		FileUtils.writeStringToFile(new File(outputDir + jxtaRelyRttKey.toString()), strOutput.toString());
+
 		strOutput = new StringBuilder();
 		tmp = output.get(jxtaSocketReqKey);
 		Set<WritableComparable> requests = tmp.keySet();
@@ -123,8 +132,8 @@ public class JxtaSocketPerf {
 			strOutput.append(" ");
 			strOutput.append(((LongWritable)tmp.get(requestTime)).get());		
 		}
-		FileUtils.writeStringToFile(new File(jxtaSocketReqKey.toString()), strOutput.toString());
-		
+		FileUtils.writeStringToFile(new File(outputDir + jxtaSocketReqKey.toString()), strOutput.toString());
+
 		strOutput = new StringBuilder();
 		tmp = output.get(jxtaSocketRemKey);						
 		Set<WritableComparable> responses = tmp.keySet();
@@ -134,10 +143,10 @@ public class JxtaSocketPerf {
 			strOutput.append(" ");
 			strOutput.append(((LongWritable)tmp.get(responseTime)).get());		
 		}
-		FileUtils.writeStringToFile(new File(jxtaSocketRemKey.toString()), strOutput.toString());
-		
+		FileUtils.writeStringToFile(new File(outputDir + jxtaSocketRemKey.toString()), strOutput.toString());
+
 		long t1 = System.currentTimeMillis();
-		
+
 		System.out.println("### Execution Time: " + (t1 - t0));
 	}
 
@@ -246,22 +255,25 @@ public class JxtaSocketPerf {
 			}
 		}
 
-		if(uncompleted > 0)
+		if(uncompleted > 0 && JxtaSocketFlow.isDebug)
 			System.out.println("### Total Uncompleted Flows = " + uncompleted);
-		if(ackLost > 0)
+		if(ackLost >  0 && JxtaSocketFlow.isDebug)
 			System.out.println("### Ack Expected = " + ackLost);
 
 		// Socket Request
 		output.put(jxtaSocketReqKey, socReqOutput);
-		System.out.println("### Socket Requests: " + socReqOutput.size());
+		if(JxtaSocketFlow.isDebug)
+			System.out.println("### Socket Requests: " + socReqOutput.size());
 
 		// Socket Response
 		output.put(jxtaSocketRemKey, socRemOutput);
-		System.out.println("### Socket Response: " + socRemOutput.size());
+		if(JxtaSocketFlow.isDebug)
+			System.out.println("### Socket Response: " + socRemOutput.size());
 
 		// Arrivals
 		output.put(jxtaArrivalKey, arrivalOutput);
-		System.out.println("### Arrivals: " + arrivalOutput.size());
+		if(JxtaSocketFlow.isDebug)
+			System.out.println("### Arrivals: " + arrivalOutput.size());
 
 		// RTT
 		final SortedMapWritable rttOutput = new SortedMapWritable();
@@ -277,7 +289,8 @@ public class JxtaSocketPerf {
 			rttOutput.put(new LongWritable(time), new LongArrayWritable(fd));				
 		}
 		output.put(jxtaRelyRttKey, rttOutput);
-		System.out.println("### Rtts: " + rttOutput.size());			
+		if(JxtaSocketFlow.isDebug)
+			System.out.println("### Rtts: " + rttOutput.size());			
 
 		return output;
 	}

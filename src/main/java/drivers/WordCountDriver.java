@@ -19,15 +19,12 @@ import wordcount.WordCountReducer;
 public class WordCountDriver {
 
 	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {
-		System.out.println("### WordCountDriver ###");
-		
 		Configuration conf = new Configuration();		
-		Job job = new Job(conf, "wordcountdriver");
+		Job job = new Job(conf, "WordCountDriver");
 		job.setJarByClass(WordCountMapper.class);
 		
-		Path inputPath;
-		Path outputPath;
-		
+		// Arguments
+		Path inputPath, outputPath;		
 		GenericOptionsParser parser = new GenericOptionsParser(conf, args);
 		args = parser.getRemainingArgs();
 		if(args.length > 1){
@@ -38,21 +35,20 @@ public class WordCountDriver {
 			outputPath = new Path("output");
 		}
 		
-		// Input
+		// Mapper
 		FileInputFormat.setInputPaths(job, inputPath);
+		job.setMapperClass(WordCountMapper.class);
 		job.setInputFormatClass(TextInputFormat.class);
 		job.setOutputKeyClass(Text.class);
 		job.setOutputValueClass(IntWritable.class);
 		
-		// MapReduce
-		job.setMapperClass(WordCountMapper.class);
-		job.setReducerClass(WordCountReducer.class);
-		
-		// Output
+		// Reducer
 		String outDir = "/output."+ System.currentTimeMillis();
 		FileOutputFormat.setOutputPath(job, new Path(outputPath + outDir));
+		job.setReducerClass(WordCountReducer.class);
 		job.setOutputFormatClass(TextOutputFormat.class);		
 		
+		// Execution
 		job.waitForCompletion(true);
 	}
 }

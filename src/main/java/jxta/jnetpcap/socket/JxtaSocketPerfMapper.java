@@ -18,21 +18,18 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.SortedMapWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapreduce.Mapper;
 import org.jnetpcap.Pcap;
 
-@SuppressWarnings("deprecation")
-public class JxtaSocketPerfMapper extends MapReduceBase implements Mapper<NullWritable, Text, Text, SortedMapWritable> {
+public class JxtaSocketPerfMapper extends Mapper<NullWritable, Text, Text, SortedMapWritable> {
 
 	public static final Text jxtaRelyRttKey = new Text("rtt");
-	public static final Text jxtaArrivalKey = new Text("arrival");
+	public static final Text jxtaArrivalKey = new Text("arv");
 	public static final Text jxtaSocketReqKey = new Text("req");
 	public static final Text jxtaSocketRemKey = new Text("rem");
 
-	public void map(NullWritable mapKey, Text value, OutputCollector<Text, SortedMapWritable> output, Reporter reporter) throws IOException {
+	public void map(NullWritable mapKey, Text value, Context context) throws IOException {
+		System.out.println("### JxtaSocketPerfMapper");
 		Configuration conf = new Configuration();
 		FileSystem hdfs = FileSystem.get(conf);
 		Path dstPath = new Path("/tmp/");
@@ -46,23 +43,26 @@ public class JxtaSocketPerfMapper extends MapReduceBase implements Mapper<NullWr
 			fileName = str.nextToken();
 		}
 
+		// Copy file to local fs
 		t0 = System.currentTimeMillis();
 		Path srcPath = new Path(value.toString());
 		hdfs.copyToLocalFile(srcPath, dstPath);
 		File pcapFile = new File(dstPath.toString() + "/" + fileName);
 		t1 = System.currentTimeMillis();	
 
+		// Load pcap file
 		final StringBuilder errbuf = new StringBuilder();		
 		final Pcap pcap = Pcap.openOffline(pcapFile.getAbsolutePath(), errbuf);
 		if (pcap == null) {
 			throw new RuntimeException("Impossible to open PCAP file");
 		}
 
+		// Extracts data of flows and statistcs
+		t2 = System.currentTimeMillis();
 		final SortedMap<Integer,JxtaSocketFlow> dataFlows = new TreeMap<Integer,JxtaSocketFlow>();
 		final SortedMap<Integer,JxtaSocketFlow> ackFlows = new TreeMap<Integer,JxtaSocketFlow>();
-
-		t2 = System.currentTimeMillis();
 		JxtaSocketFlow.generateSocketFlows(errbuf, pcap, dataFlows, ackFlows);
+		generateJxtaStatistics(context,dataFlows,ackFlows);
 		t3 = System.currentTimeMillis();
 
 		System.out.println("### CopyTime: " + (t1-t0));
@@ -70,12 +70,10 @@ public class JxtaSocketPerfMapper extends MapReduceBase implements Mapper<NullWr
 		System.out.println("### CopyTime/FlowTime: " + (t1-t0)/(t3-t2));
 		System.out.println("### CopyTime/TotalTime: " + (t1-t0)/((t1-t0) + (t3-t2)));
 
-		generateJxtaStatistics(output,dataFlows,ackFlows);
-
 		pcap.close();
 	}	
 
-	private void generateJxtaStatistics(OutputCollector<Text, SortedMapWritable> ctx, SortedMap<Integer,JxtaSocketFlow> dataFlows, SortedMap<Integer,JxtaSocketFlow> ackFlows){
+	private void generateJxtaStatistics(Context ctx, SortedMap<Integer,JxtaSocketFlow> dataFlows, SortedMap<Integer,JxtaSocketFlow> ackFlows){
 
 		final SortedMapWritable socReqOutput = new SortedMapWritable();
 		final SortedMapWritable socRemOutput = new SortedMapWritable();
@@ -185,15 +183,15 @@ public class JxtaSocketPerfMapper extends MapReduceBase implements Mapper<NullWr
 
 		try{
 			// Socket Request
-			ctx.collect(jxtaSocketReqKey, socReqOutput);
+			ctx.write(jxtaSocketReqKey, socReqOutput);
 			System.out.println("### Socket Requests: " + socReqOutput.size());
 
 			// Socket Response
-			ctx.collect(jxtaSocketRemKey, socRemOutput);
+			ctx.write(jxtaSocketRemKey, socRemOutput);
 			System.out.println("### Socket Response: " + socRemOutput.size());
 
 			// Arrivals
-			ctx.collect(jxtaArrivalKey, arrivalOutput);
+			ctx.write(jxtaArrivalKey, arrivalOutput);
 			System.out.println("### Arrivals: " + arrivalOutput.size());
 
 			// RTT
@@ -209,7 +207,7 @@ public class JxtaSocketPerfMapper extends MapReduceBase implements Mapper<NullWr
 				}
 				rttOutput.put(new LongWritable(time), new LongArrayWritable(fd));				
 			}
-			ctx.collect(jxtaRelyRttKey, rttOutput);
+			ctx.write(jxtaRelyRttKey, rttOutput);
 			System.out.println("### Rtts: " + rttOutput.size());			
 		}catch(IOException e){
 			e.printStackTrace();

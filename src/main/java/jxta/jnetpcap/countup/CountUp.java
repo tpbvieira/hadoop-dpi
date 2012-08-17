@@ -31,7 +31,7 @@ public class CountUp {
 	public static final Text jxtaSocketRemKey = new Text("rem");
 
 	private static int executions = 10;
-	private static String inputDir = "/home/thiago/tmp/pcap-traces/dropbox/3.5/32/";	
+	private static String inputDir = "/home/thiago/tmp/_/";	
 
 	/**
 	 * @param args

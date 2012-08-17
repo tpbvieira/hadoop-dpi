@@ -14,10 +14,11 @@ import net.jxta.document.AdvertisementFactory;
 import net.jxta.document.StructuredDocumentFactory;
 import net.jxta.document.XMLDocument;
 import net.jxta.endpoint.Message;
-import net.jxta.endpoint.MessageElement;
 import net.jxta.endpoint.Message.ElementIterator;
+import net.jxta.endpoint.MessageElement;
 import net.jxta.impl.endpoint.router.EndpointRouterMessage;
 import net.jxta.impl.util.pipe.reliable.Defs;
+import net.jxta.parser.exceptions.JxtaHeaderParserException;
 import net.jxta.protocol.PipeAdvertisement;
 
 import org.jnetpcap.Pcap;
@@ -25,9 +26,9 @@ import org.jnetpcap.packet.JPacket;
 import org.jnetpcap.packet.JPacketHandler;
 import org.jnetpcap.protocol.network.Ip4;
 import org.jnetpcap.protocol.tcpip.Jxta;
+import org.jnetpcap.protocol.tcpip.Jxta.JxtaMessageType;
 import org.jnetpcap.protocol.tcpip.JxtaUtils;
 import org.jnetpcap.protocol.tcpip.Tcp;
-import org.jnetpcap.protocol.tcpip.Jxta.JxtaMessageType;
 
 /**
  * Class to represent a flow of a JXTA Socket and provide some utilities 
@@ -53,7 +54,7 @@ public class JxtaSocketFlow {
 
 	private long startTime = Long.MAX_VALUE;
 	private long endTime = Long.MIN_VALUE;
-	
+
 	private long socketReqTime;
 	private long socketRemTime;
 
@@ -61,7 +62,9 @@ public class JxtaSocketFlow {
 	private static final String reqPipeTag = "reqPipe";
 	private static final String remPipeTag = "remPipe";	
 	private static final String closeTag = "close";
-	
+
+	public static boolean isDebug = false;
+
 	public JxtaSocketFlow(int dataFlowId, int ackFlowId){
 		this.dataFlowId = dataFlowId;
 		this.ackFlowId = ackFlowId;
@@ -75,7 +78,7 @@ public class JxtaSocketFlow {
 		socketReqTime = 0;
 		socketRemTime = 0;
 	}
-	
+
 	public JxtaSocketFlow(int dataFlowId, int ackFlowId, long socketReqTime, long socketRemTime){
 		this.dataFlowId = dataFlowId;
 		this.ackFlowId = ackFlowId;
@@ -121,7 +124,7 @@ public class JxtaSocketFlow {
 	public long getTransferTime() {
 		return endTime - startTime;
 	}
-	
+
 	public long getSocketReqTime() {
 		return socketReqTime;
 	}
@@ -211,14 +214,14 @@ public class JxtaSocketFlow {
 			try {
 				DataInputStream dis = new DataInputStream(ackElement.getStream());
 				SortedMap<Long,JPacket> pkts = ackJxta.getJxtaPackets();
-				
+
 				if(pkts != null && pkts.size() > 0){						
 					packet = pkts.get(pkts.lastKey());
 				}else{
 					packet = ackJxta.getPacket();	
 				}
 				msgTime = packet.getCaptureHeader().timestampInMillis();
-				
+
 				// iterate over the message ack number and sackNumber (sackNumber + this message)
 				for (int sac = 0; sac < sackNumber + 1; sac++) {
 					int seqAck = dis.readInt();
@@ -230,7 +233,7 @@ public class JxtaSocketFlow {
 						rtts.put(seqAck, rtt);	
 					}					
 				}
-				
+
 			} catch (IOException e) {
 				e.printStackTrace();
 			} catch (Exception e) {
@@ -259,7 +262,7 @@ public class JxtaSocketFlow {
 
 		return str.toString();
 	}
-	
+
 	public static void generateSocketFlows(final StringBuilder errbuf, final Pcap pcap, final SortedMap<Integer,JxtaSocketFlow> dataFlows,
 			final SortedMap<Integer,JxtaSocketFlow> ackFlows) {
 
@@ -272,6 +275,9 @@ public class JxtaSocketFlow {
 			Jxta jxta = new Jxta();
 
 			public void nextPacket(JPacket packet, StringBuilder errbuf) {
+
+//				if(packet.getFrameNumber() == 19114)
+//					System.out.println("### Frame Found! " + packet.getFrameNumber());
 
 				if(packet.hasHeader(Tcp.ID)){
 					packet.getHeader(tcp);
@@ -310,7 +316,6 @@ public class JxtaSocketFlow {
 											byteBuffer.get(rest2, 0, byteBuffer.remaining());
 											jxta.decode(seqNumber,packet,ByteBuffer.wrap(rest2));										
 											updateSocketFlows(jxta,reqPendings,pipePendings,dataFlows,ackFlows);
-											System.out.println("### Return 0!");
 											return;
 										}
 									}catch(BufferUnderflowException e ){
@@ -323,15 +328,11 @@ public class JxtaSocketFlow {
 										packets.clear();
 										packets.put(seqNumber,packet);
 										fragments.put(tcpFlowId,jxta);
-									}catch (RuntimeException e) {
-										if(e.getMessage().equals("Error on header parser")){
-											SortedMap<Long,JPacket> packets = jxta.getJxtaPackets();
-											packets.clear();
-											packets.put(seqNumber,packet);
-											fragments.put(tcpFlowId,jxta);	
-										}else{
-											e.printStackTrace();	
-										}
+									}catch (JxtaHeaderParserException e) {
+										SortedMap<Long,JPacket> packets = jxta.getJxtaPackets();
+										packets.clear();
+										packets.put(seqNumber,packet);
+										fragments.put(tcpFlowId,jxta);
 									}catch (Exception e) {
 										e.printStackTrace();
 									}
@@ -396,13 +397,13 @@ public class JxtaSocketFlow {
 
 		}, errbuf);
 
-		if(fragments.size() > 0)
+		if(fragments.size() > 0 && isDebug)
 			System.out.println("### Fragments: " + fragments.size());
 
-		if(reqPendings.size() > 0)
+		if(reqPendings.size() > 0 && isDebug)
 			System.out.println("### ReqPipe Pendings: " + reqPendings.size());
 
-		if(pipePendings.size() > 0)
+		if(pipePendings.size() > 0 && isDebug)
 			System.out.println("### PipePendings: " + pipePendings.size());
 	}
 
@@ -414,7 +415,7 @@ public class JxtaSocketFlow {
 
 		try{
 			elements = msg.getMessageElements(Defs.NAMESPACE, Defs.MIME_TYPE_BLOCK);// jxta-reliable-block
-			if(elements.hasNext()){
+			if(elements != null && elements.hasNext()){
 				EndpointRouterMessage erm = new EndpointRouterMessage(msg,false);
 				String strPipeId = erm.getDestAddress().getServiceParameter();
 				Integer dataPipeId = Integer.valueOf(strPipeId.hashCode());
@@ -529,5 +530,6 @@ public class JxtaSocketFlow {
 		}catch (Exception e) {
 			e.printStackTrace();
 		}
+
 	}
 }

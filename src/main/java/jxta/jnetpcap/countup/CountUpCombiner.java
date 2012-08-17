@@ -6,27 +6,25 @@ import java.io.IOException;
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Reducer;
 
-public class CountUpReducer extends Reducer<IntWritable, LongArrayWritable, IntWritable, Text> {
+public class CountUpCombiner extends Reducer<IntWritable, LongArrayWritable, IntWritable, LongArrayWritable> {
 
-	protected void reduce(IntWritable key, Iterable<LongArrayWritable> values, Context context) throws IOException {		
-		long bc = 0;		
+	public void reduce(IntWritable key, Iterable<LongArrayWritable> values, Context context) throws IOException {		
+		long bc = 0;
 		long pc = 0;
-		
 		for (LongArrayWritable value : values) {
 			Writable[] tmp = value.get();
 			bc += Long.parseLong(((LongWritable)tmp[0]).toString());
-			pc += Long.parseLong(((LongWritable)tmp[1]).toString());			
-		}
+			pc += Long.parseLong(((LongWritable)tmp[1]).toString());
+		}	
+				
+		LongWritable[] results = new LongWritable[2];
+		results[0] = new LongWritable(bc);
+		results[1] = new LongWritable(pc);		
 		try {
-			StringBuilder str = new StringBuilder();
-			str.append(bc);
-			str.append(" ");
-			str.append(pc);
-			context.write(key, new Text(str.toString()));
+			context.write(key, new LongArrayWritable(results));
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
