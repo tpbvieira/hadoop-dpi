@@ -29,35 +29,36 @@ public class JxtaSocketPerfMono {
 	public static final Text jxtaSocketReqKey = new Text("req");
 	public static final Text jxtaSocketRemKey = new Text("rem");
 
-	private static boolean isProgressive = false;
-	private static int executions = 1;
-	private static int limit = 1;
+	private static int executions = 3;
 	private static String inputDir = "/home/thiago/tmp/pcap-traces/jxtaSocket/3.5/128/";	
 	private static String outputDir = "output/JxtaSocketPerfMono_" + System.currentTimeMillis() + "/";
 
-	public static void main(String[] args) throws IOException {		
+	public static void main(String[] args) throws IOException {
+		long t0,t1;
+		ArrayList<Long> times = new ArrayList<Long>();
 
 		if(args != null && args.length >= 2){
 			executions = Integer.valueOf(args[0]);
 			inputDir = args[1];
-			isProgressive = (args.length > 2);
 		}
+
+		System.out.println("\n\n### JxtaSocketPerfMono - " + executions + "x for " + inputDir);
 		
-		if(isProgressive){
-			limit = Integer.valueOf(args[2]);
-			for (int i = 1; i <= limit; i++) {
-				System.out.println("\n### LimitInfo: " + i + " of " + limit);
-				System.out.println("### Executions: " + executions);
-				for (int j = 0; j < executions; j++) {
-					execute(i);
-				}	
-			}
-		}else{
-			limit = Integer.MAX_VALUE;
-			for (int j = 0; j < executions; j++) {
-				execute(limit);
-			}
+		for (int j = 0; j < executions; j++) {
+			t0 = System.currentTimeMillis();
+			execute();
+			t1 = System.currentTimeMillis();
+			times.add(t1 - t0);
+			System.out.println("### " + (j + 1) + "-Time: " + (t1-t0));	
 		}
+
+		System.out.println("### Times:");
+		double total = 0;
+		for (Long time : times) {
+			System.out.println(time);
+			total += time;
+		}
+		System.out.println("### MeanTime: " + (total/executions));
 	}
 
 	/**
@@ -65,23 +66,20 @@ public class JxtaSocketPerfMono {
 	 * @throws IOException 
 	 */	
 	@SuppressWarnings("rawtypes")
-	private static void execute(int limit) throws IOException {
+	private static void execute() throws IOException {
 		final StringBuilder errbuf = new StringBuilder();
 		final SortedMap<Integer,JxtaSocketFlow> dataFlows = new TreeMap<Integer,JxtaSocketFlow>();
 		final SortedMap<Integer,JxtaSocketFlow> ackFlows = new TreeMap<Integer,JxtaSocketFlow>();
 		File path = new File(inputDir);
 		Pcap pcap;
 
-		long t0 = System.currentTimeMillis();
 		if(path.isDirectory()){
 			File[] files = FileUtil.listFiles(path);
-			for (int i = 0; i < files.length && i < limit; i++) {
-				System.out.println("### File: " + files[i].getAbsolutePath());
+			for (int i = 0; i < files.length; i++) {
 				pcap = Pcap.openOffline(files[i].getAbsolutePath(), errbuf);
 				if (pcap == null) {
 					throw new RuntimeException("Impossible to open PCAP file");
 				}
-
 				JxtaSocketFlow.generateSocketFlows(errbuf, pcap, dataFlows, ackFlows);
 				pcap.close();
 			}
@@ -90,13 +88,11 @@ public class JxtaSocketPerfMono {
 			if (pcap == null) {
 				throw new RuntimeException("Impossible to open PCAP file");
 			}
-
 			JxtaSocketFlow.generateSocketFlows(errbuf, pcap, dataFlows, ackFlows);
 			pcap.close();
 		}
 
 		Map <Text,SortedMapWritable> output = generateJxtaRttStatistics(dataFlows,ackFlows);
-
 		StringBuilder strOutput = new StringBuilder();
 		SortedMapWritable tmp = output.get(jxtaArrivalKey);
 		Set<WritableComparable> arrivals = tmp.keySet();
@@ -144,10 +140,6 @@ public class JxtaSocketPerfMono {
 			strOutput.append(((LongWritable)tmp.get(responseTime)).get());		
 		}
 		FileUtils.writeStringToFile(new File(outputDir + jxtaSocketRemKey.toString()), strOutput.toString());
-
-		long t1 = System.currentTimeMillis();
-
-		System.out.println("### Execution Time: " + (t1 - t0));
 	}
 
 	public static Map<Text,SortedMapWritable> generateJxtaRttStatistics(SortedMap<Integer,JxtaSocketFlow> dataFlows, SortedMap<Integer,JxtaSocketFlow> ackFlows){

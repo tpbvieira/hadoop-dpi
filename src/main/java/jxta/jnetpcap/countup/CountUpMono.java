@@ -23,35 +23,46 @@ import org.jnetpcap.protocol.tcpip.Udp;
 
 import util.FileUtil;
 
-public class CountUp {
+public class CountUpMono {
 
 	public static final Text jxtaRelyRttKey = new Text("rtt");
 	public static final Text jxtaArrivalKey = new Text("arrival");
 	public static final Text jxtaSocketReqKey = new Text("req");
 	public static final Text jxtaSocketRemKey = new Text("rem");
 
-	private static int executions = 10;
-	private static String inputDir = "/home/thiago/tmp/_/";	
+	private static int executions = 3;
+	private static String inputDir = "/home/thiago/tmp/pcap-traces/dropbox/3.5/32";	
 
 	/**
 	 * @param args
 	 * @throws IOException 
 	 */	
 	public static void main(String[] args) throws IOException {
-		
+		ArrayList<Long> times = new ArrayList<Long>();
 		long t0,t1;
 
 		if(args != null && args.length == 2){
 			executions = Integer.valueOf(args[0]);
 			inputDir = args[1];
 		}
+		
+		System.out.println("\n\n### CountUpMono - " + executions + "x for " + inputDir);
 
 		for (int i = 0; i < executions; i++) {
 			t0 = System.currentTimeMillis();
 			execute();
 			t1 = System.currentTimeMillis();
-			System.out.println("### Time: " + (t1 - t0));
+			times.add(t1 - t0);
+			System.out.println("### " + (i + 1) + "-Time: " + (t1-t0));	
 		}
+
+		System.out.println("\n### Times:");
+		double total = 0;
+		for (Long time : times) {
+			System.out.println(time);
+			total += time;
+		}
+		System.out.println("### MeanTime: " + (total/executions));
 	}
 
 	/**

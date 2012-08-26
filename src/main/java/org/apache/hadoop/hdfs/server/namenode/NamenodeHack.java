@@ -11,5 +11,5 @@ public class NamenodeHack extends INodeFile{
 		System.out.println("### LocalName" + ns.dir.getFileINode(src).getLocalName());
 		System.out.println("### PathNames" + INode.getPathNames(src));
 	}
-
+	
 }

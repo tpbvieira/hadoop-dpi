@@ -27,22 +27,28 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 public class JxtaSocketPerfDriver {
 
-	private static int executions = 1;
-	private static String inputDir = "input/";	
+	private static int executions = 2;
+	private static String inputDir = "input/";
+	private static String numNodes = "";
 
-	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {
-		// Arguments
-		if(args != null && args.length == 2){
+	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {		
+
+		if(args != null && args.length >= 2){
 			executions = Integer.valueOf(args[0]);
 			inputDir = args[1];
+			if(args.length > 2){
+				numNodes = args[2];
+			}
 		}
-
+		
+		String jobName = "JxtaSocketPerfDriver - " + executions + "x for " + inputDir + " - " + numNodes;
 		ArrayList<Long> times = new ArrayList<Long>();
-		for (int k = 0; k < executions; k++) {			
+		int k = 0;
+		for (; k < executions; k++) {			
 			Configuration conf = new Configuration();
-			Job job = new Job(conf, "JxtaSocketPerfDriver");
+			Job job = new Job(conf, jobName);
 			job.setJarByClass(JxtaSocketPerfMapper.class);
-
+			
 			// Mapper
 			job.setMapperClass(JxtaSocketPerfMapper.class);
 			FileInputFormat.setInputPaths(job,new Path(inputDir));
@@ -56,7 +62,11 @@ public class JxtaSocketPerfDriver {
 			// Reducer
 			job.setReducerClass(JxtaSocketPerfReducer.class);
 			job.setOutputFormatClass(TextOutputFormat.class);
-			job.setNumReduceTasks(4);
+			if(numNodes != null && numNodes.length() > 0){
+				Integer nodes = Integer.decode(numNodes);
+				Integer numReduceTasks = new Float(nodes * 0.95).intValue();
+				job.setNumReduceTasks(numReduceTasks);
+			}
 			Path outputPath = new Path("output/JxtaSocketPerfDriver_" + System.currentTimeMillis());
 			FileOutputFormat.setOutputPath(job, outputPath);
 			
@@ -66,14 +76,16 @@ public class JxtaSocketPerfDriver {
 			job.waitForCompletion(true);
 			t1 = System.currentTimeMillis();
 			times.add(t1 - t0);
-			System.out.println("### " + (++k) + "-Time: " + (t1-t0));	
+			System.out.println("### " + (k + 1) + "-Time: " + (t1-t0));	
 		}
 
 		System.out.println("### Times:");
+		double total = 0;
 		for (Long time : times) {
 			System.out.println(time);
+			total += time;
 		}
-		
+		System.out.println("### MeanTime: " + (total/k));
 	}
 
 	@SuppressWarnings("unused")

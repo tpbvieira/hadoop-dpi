@@ -21,19 +21,24 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 public class CountUpDriver {
 
 	private static int executions = 1;
-	private static String inputDir = "input/";	
+	private static String inputDir = "input/";
+	private static String numNodes = "";
 
 	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {
-		// Arguments
-		if(args != null && args.length == 2){
+
+		if(args != null && args.length >= 2){
 			executions = Integer.valueOf(args[0]);
 			inputDir = args[1];
+			if(args.length > 2){
+				numNodes = args[2];
+			}
 		}
-
+		
+		String jobName = "CountUpDriver - " + executions + "x for " + inputDir + " - " + numNodes;
 		ArrayList<Long> times = new ArrayList<Long>();
 		for (int k = 0; k < executions; ) {			
 			Configuration conf = new Configuration();
-			Job job = new Job(conf, "CountUpDriver");
+			Job job = new Job(conf, jobName);
 			job.setJarByClass(CountUpMapper.class);
 
 			// Mapper
@@ -50,6 +55,11 @@ public class CountUpDriver {
 			// Reducer			
 			job.setReducerClass(CountUpReducer.class);
 			job.setOutputFormatClass(TextOutputFormat.class);
+			if(numNodes != null && numNodes.length() > 0){
+				Integer nodes = Integer.decode(numNodes);
+				Integer numReduceTasks = new Float(nodes * 0.95).intValue();
+				job.setNumReduceTasks(numReduceTasks);
+			}
 			Path outputPath = new Path("output/CountUpDriver_" + System.currentTimeMillis());
 			FileOutputFormat.setOutputPath(job, outputPath);
 			

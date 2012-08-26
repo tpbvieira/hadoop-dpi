@@ -4,11 +4,19 @@ import io.type.LongArrayWritable;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DFSClient;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.hdfs.HdfsHack;
+import org.apache.hadoop.hdfs.protocol.FSConstants;
+import org.apache.hadoop.hdfs.protocol.LocatedBlock;
+import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
@@ -27,63 +35,63 @@ public class CountUpMapper extends Mapper<NullWritable, Text, IntWritable, LongA
 		final Context ctx = context;		
 		Configuration conf = new Configuration();
 		FileSystem hdfs = FileSystem.get(conf);
-		Path dstPath = new Path("/tmp/");
-
-		// Get File Name and Copy to local tmp dir
-		StringTokenizer str = new StringTokenizer(value.toString(),"/");
-		String fileName = null;
-		while(str.hasMoreElements()){
-			fileName = str.nextToken();
-		}
 		Path srcPath = new Path(value.toString());
-		long t0 = System.currentTimeMillis();
-		hdfs.copyToLocalFile(srcPath, dstPath);
-		long t1 = System.currentTimeMillis();
-		StringBuilder filePath = new StringBuilder(dstPath.toString());
-		filePath.append("/");
-		filePath.append(fileName);
-		File pcapFile = new File(filePath.toString());	
-		System.out.println("### CopyTime: " + (t1 - t0));
-		
-		
-		
-		// Teste		
-//		System.out.println("### path: " + srcPath); 
-//		System.out.println("### Exists: " + srcPath.getFileSystem(conf).getLocal(conf).exists(srcPath));
-//		System.out.println("### Exists: " + FileSystem.getLocal(conf).exists(srcPath));
-//		System.out.println("### CanonicalServiceName: " + srcPath.getFileSystem(conf).getCanonicalServiceName());		
-//		System.out.println("### PathToFile: " + srcPath.getFileSystem(conf).getLocal(conf).pathToFile(srcPath));
-//		FileStatus status = srcPath.getFileSystem(conf).getFileStatus(srcPath);
-//		System.out.println("### Status: " + status);
-//		BlockLocation[] blkLocations = srcPath.getFileSystem(conf).getFileBlockLocations(status, 0, Long.MAX_VALUE);
-//		
-//		System.out.println("### BlockLocations: " + blkLocations.length);
-//		for (int i = 0; i < blkLocations.length; i++) {
-//			String[] names = blkLocations[i].getNames();
-//			for (int j = 0; j < names.length; j++) {
-//				System.out.println("### Name: " + names[j]); 				
-//			}
-//		}
-//		
-//		System.out.println("### Block Locations ###");
-//		DFSClient dfs = new DFSClient(DataNode.getDataNode().getNameNodeAddr(),conf);
-//		LocatedBlocks blocks = dfs.namenode.getBlockLocations(value.toString(), 0, conf.getLong("dfs.block.size", FSConstants.DEFAULT_BLOCK_SIZE));
-//		List<LocatedBlock> blockList = blocks.getLocatedBlocks();
-//		for (LocatedBlock lBlock : blockList) {
-//			System.out.println("### Block: " + lBlock.getBlock().getBlockName());
-//		}
-//
-//		System.out.println("### HdfsFileStatus ###");	
-//		HdfsFileStatus fileStatus = ((NameNode)dfs.namenode).getFileInfo(value.toString());
-//		System.out.println("### BlockSize: " + fileStatus.getBlockSize());
-//		System.out.println("### LocalName: " + fileStatus.getLocalName());
-//
-//		System.out.println("### FileINode ###");
-//		NamenodeHack hack = new NamenodeHack();		
-//		hack.getFileInode(((NameNode)dfs.namenode).namesystem, value.toString());
+		File pcapFile = null;
 
-		
-		
+		try{
+			System.out.println("### Local FS Access ###");
+			String dataDir = null;
+			String[] dataDirs = conf.getStrings("dfs.data.dir");
+			if(dataDirs != null && dataDirs.length > 0){
+				dataDir = dataDirs[0] + "/current/";
+			}
+			DistributedFileSystem dfs = (DistributedFileSystem)hdfs;
+			DFSClient dfsClient = HdfsHack.getDFSCLient(dfs);
+			LocatedBlocks blocks = dfsClient.namenode.getBlockLocations(HdfsHack.getPathName(dfs, srcPath), 0, conf.getLong("dfs.block.size", FSConstants.DEFAULT_BLOCK_SIZE));
+			List<LocatedBlock> blockList = blocks.getLocatedBlocks();
+			if(dataDir != null && blockList != null && blockList.size() > 0){				
+				for (LocatedBlock locatedBlock : blockList) {
+					String blockName = locatedBlock.getBlock().getBlockName();
+					File tmpFile = new File(dataDir + blockName);
+					if(tmpFile.exists()){
+						pcapFile = tmpFile;
+						System.out.println("### PCAPFile: " + pcapFile.getAbsoluteFile());
+					}else{
+						System.out.println("### PCAPFile NotFound");
+//						FSDataInputStream in = hdfs.open(srcPath);
+//						in.close();
+//						if(tmpFile.exists()){
+//							pcapFile = tmpFile;
+//							System.out.println("### PCAPFile Received: " + pcapFile.getAbsoluteFile());
+//						}else{
+//							System.out.println("### PCAPFile NotFound Again!!!");
+//						}
+					}
+				}
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		if(pcapFile == null){
+			// Get File Name and Copy to local tmp dir
+			System.out.println("### HDFS Access ###");
+			StringTokenizer str = new StringTokenizer(value.toString(),"/");
+			String fileName = null;
+			while(str.hasMoreElements()){
+				fileName = str.nextToken();
+			}
+			Path dstPath = new Path("/tmp/");
+			long t0 = System.currentTimeMillis();
+			hdfs.copyToLocalFile(srcPath, dstPath);
+			long t1 = System.currentTimeMillis();
+			StringBuilder filePath = new StringBuilder(dstPath.toString());
+			filePath.append("/");
+			filePath.append(fileName);
+			pcapFile = new File(filePath.toString());	
+			System.out.println("### CopyTime: " + (t1 - t0));
+		}
+
 		// Load file
 		final StringBuilder errbuf = new StringBuilder();		
 		final Pcap pcap = Pcap.openOffline(pcapFile.getAbsolutePath(), errbuf);

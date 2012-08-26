@@ -73,5 +73,15 @@
 			<artifactId>jnetpcap-jxta</artifactId>
 			<version>0.0.3</version>
 		</dependency>
+		<dependency>
+			<groupId>org.codehaus.jackson</groupId>
+			<artifactId>jackson-mapper-asl</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.codehaus.jackson</groupId>
+			<artifactId>jackson-core-asl</artifactId>
+			<version>1.9.7</version>
+		</dependency>
 	</dependencies>
 </project>
