@@ -19,6 +19,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SortedMapWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.lib.MultipleTextOutputFormat;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
@@ -29,7 +31,7 @@ public class JxtaSocketPerfDriver {
 
 	private static int executions = 2;
 	private static String inputDir = "input/";
-	private static String numNodes = "";
+	private static String numNodesStr = "";
 
 	public static void main(String[] args) throws IOException,	InterruptedException, ClassNotFoundException {		
 
@@ -37,11 +39,11 @@ public class JxtaSocketPerfDriver {
 			executions = Integer.valueOf(args[0]);
 			inputDir = args[1];
 			if(args.length > 2){
-				numNodes = args[2];
+				numNodesStr = args[2];
 			}
 		}
 		
-		String jobName = "JxtaSocketPerfDriver - " + executions + "x for " + inputDir + " - " + numNodes;
+		String jobName = "JxtaSocketPerfDriver - " + executions + "x for " + inputDir + " - " + numNodesStr;
 		ArrayList<Long> times = new ArrayList<Long>();
 		int k = 0;
 		for (; k < executions; k++) {			
@@ -62,10 +64,12 @@ public class JxtaSocketPerfDriver {
 			// Reducer
 			job.setReducerClass(JxtaSocketPerfReducer.class);
 			job.setOutputFormatClass(TextOutputFormat.class);
-			if(numNodes != null && numNodes.length() > 0){
-				Integer nodes = Integer.decode(numNodes);
-				Integer numReduceTasks = new Float(nodes * 0.95).intValue();
+			
+			int numNodes = new JobClient(new JobConf()).getClusterStatus().getTaskTrackers();			
+			if(numNodes  > 0){
+				Integer numReduceTasks = new Float(numNodes * 0.95).intValue();
 				job.setNumReduceTasks(numReduceTasks);
+				System.out.println("### Reducers: " + numReduceTasks);
 			}
 			Path outputPath = new Path("output/JxtaSocketPerfDriver_" + System.currentTimeMillis());
 			FileOutputFormat.setOutputPath(job, outputPath);

@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSClient;
@@ -58,14 +57,6 @@ public class CountUpMapper extends Mapper<NullWritable, Text, IntWritable, LongA
 						System.out.println("### PCAPFile: " + pcapFile.getAbsoluteFile());
 					}else{
 						System.out.println("### PCAPFile NotFound");
-//						FSDataInputStream in = hdfs.open(srcPath);
-//						in.close();
-//						if(tmpFile.exists()){
-//							pcapFile = tmpFile;
-//							System.out.println("### PCAPFile Received: " + pcapFile.getAbsoluteFile());
-//						}else{
-//							System.out.println("### PCAPFile NotFound Again!!!");
-//						}
 					}
 				}
 			}

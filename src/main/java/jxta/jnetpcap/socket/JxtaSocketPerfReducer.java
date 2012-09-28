@@ -16,37 +16,35 @@ public class JxtaSocketPerfReducer extends Reducer<Text, SortedMapWritable, Long
 	@SuppressWarnings("rawtypes")
 	@Override
 	public void reduce(Text key, Iterable<SortedMapWritable> values, Context context) throws IOException {		
-		System.out.println("### JxtaSocketPerfReducer");
-		if(key.equals(JxtaSocketPerfMapper.jxtaArrivalKey)){// Arrival count			
+
+		if(key.equals(JxtaSocketPerfMapper.jxtaArrivalKey)){			
 			SortedMapWritable tmp = null;
 			
-			for (SortedMapWritable value : values) {
-				System.out.println("###  " + key + " - " + value.size());
+			for (SortedMapWritable value : values) {				
 				tmp = value;
 			}
-			Set<WritableComparable> arrivals = tmp.keySet();
-			for (WritableComparable arrivalTime : arrivals) {
+			Set<WritableComparable> arrivalsKeys = tmp.keySet();
+			for (WritableComparable arrivalKey : arrivalsKeys) {
 				try {
-					context.write((LongWritable)arrivalTime, (LongWritable)tmp.get(arrivalTime));
+					context.write((LongWritable)arrivalKey, (LongWritable)tmp.get(arrivalKey));
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
 			tmp.clear();
 		}else
-			if(key.equals(JxtaSocketPerfMapper.jxtaRelyRttKey)){// RTT
+			if(key.equals(JxtaSocketPerfMapper.jxtaRelyRttKey)){
 				SortedMapWritable tmp = null;
 				for (SortedMapWritable value : values) {
-					System.out.println("###  " + key + " - " + value.size());
 					tmp = value;
 				}
-				Set<WritableComparable> times = tmp.keySet();
-				for (WritableComparable time : times) {
-					ArrayWritable rttsArray = (ArrayWritable)tmp.get(time);
+				Set<WritableComparable> rttKeys = tmp.keySet();
+				for (WritableComparable rttKey : rttKeys) {
+					ArrayWritable rttsArray = (ArrayWritable)tmp.get(rttKey);
 					Writable[] rtts = rttsArray.get();						
 					for (int j = 0; j < rtts.length; j++) {
 						try {
-							context.write((LongWritable)time, (LongWritable)rtts[j]);
+							context.write((LongWritable)rttKey, (LongWritable)rtts[j]);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
@@ -55,32 +53,30 @@ public class JxtaSocketPerfReducer extends Reducer<Text, SortedMapWritable, Long
 					
 				tmp.clear();
 			}else
-				if(key.equals(JxtaSocketPerfMapper.jxtaSocketReqKey)){// Socket request count			
+				if(key.equals(JxtaSocketPerfMapper.jxtaSocketReqKey)){			
 					SortedMapWritable tmp = null;
 					for (SortedMapWritable value : values) {
-						System.out.println("###  " + key + " - " + value.size());
 						tmp = value;
 					}
-					Set<WritableComparable> requests = tmp.keySet();
-					for (WritableComparable requestTime : requests) {
+					Set<WritableComparable> requestsKeys = tmp.keySet();
+					for (WritableComparable requestKey : requestsKeys) {
 						try {
-							context.write((LongWritable)requestTime, (LongWritable)tmp.get(requestTime));
+							context.write((LongWritable)requestKey, (LongWritable)tmp.get(requestKey));
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
 					}
 					tmp.clear();
 				}else
-					if(key.equals(JxtaSocketPerfMapper.jxtaSocketRemKey)){// Socket response count			
+					if(key.equals(JxtaSocketPerfMapper.jxtaSocketRemKey)){			
 						SortedMapWritable tmp = null;
 						for (SortedMapWritable value : values) {
-							System.out.println("###  " + key + " - " + value.size());
 							tmp = value;
 						}
-						Set<WritableComparable> responses = tmp.keySet();
-						for (WritableComparable responseTime : responses) {							
+						Set<WritableComparable> responsesKeys = tmp.keySet();
+						for (WritableComparable responseKey : responsesKeys) {							
 							try {
-								context.write((LongWritable)responseTime, (LongWritable)tmp.get(responseTime));
+								context.write((LongWritable)responseKey, (LongWritable)tmp.get(responseKey));
 							} catch (InterruptedException e) {
 								e.printStackTrace();
 							}

@@ -18,8 +18,8 @@ public class CountUpReducer extends Reducer<IntWritable, LongArrayWritable, IntW
 		
 		for (LongArrayWritable value : values) {
 			Writable[] tmp = value.get();
-			bc += Long.parseLong(((LongWritable)tmp[0]).toString());
-			pc += Long.parseLong(((LongWritable)tmp[1]).toString());			
+			bc += ((LongWritable)tmp[0]).get();
+			pc += ((LongWritable)tmp[1]).get();			
 		}
 		try {
 			StringBuilder str = new StringBuilder();
