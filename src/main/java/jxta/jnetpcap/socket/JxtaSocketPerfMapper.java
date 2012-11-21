@@ -12,6 +12,8 @@ import java.util.SortedMap;
 import java.util.StringTokenizer;
 import java.util.TreeMap;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -35,8 +37,9 @@ public class JxtaSocketPerfMapper extends Mapper<NullWritable, Text, Text, Sorte
 	public static final Text jxtaSocketReqKey = new Text("req");
 	public static final Text jxtaSocketRemKey = new Text("rem");
 
+	private static final Log LOG = LogFactory.getLog(JxtaSocketPerfMapper.class);
+
 	public void map(NullWritable mapKey, Text value, Context context) throws IOException {
-		System.out.println("### JxtaSocketPerfMapper");
 		double t0=0,t1=0,t2=0,t3=0;
 
 		Configuration conf = new Configuration();
@@ -45,43 +48,36 @@ public class JxtaSocketPerfMapper extends Mapper<NullWritable, Text, Text, Sorte
 		File pcapFile = null;
 
 		try{
-			System.out.println("### Local FS Access ###");
 			String dataDir = null;
 			String[] dataDirs = conf.getStrings("dfs.data.dir");
 			if(dataDirs != null && dataDirs.length > 0){
 				dataDir = dataDirs[0] + "/current/";
 			}
-			DistributedFileSystem dfs = (DistributedFileSystem)hdfs;
-			DFSClient dfsClient = HdfsHack.getDFSCLient(dfs);
-			LocatedBlocks blocks = dfsClient.namenode.getBlockLocations(HdfsHack.getPathName(dfs, srcPath), 0, conf.getLong("dfs.block.size", FSConstants.DEFAULT_BLOCK_SIZE));
-			List<LocatedBlock> blockList = blocks.getLocatedBlocks();
-			if(dataDir != null && blockList != null && blockList.size() > 0){				
-				for (LocatedBlock locatedBlock : blockList) {
-					String blockName = locatedBlock.getBlock().getBlockName();
-					File tmpFile = new File(dataDir + blockName);
-					if(tmpFile.exists()){
-						pcapFile = tmpFile;
-						System.out.println("### PCAPFile: " + pcapFile.getAbsoluteFile());
-					}else{
-						System.out.println("### PCAPFile NotFound");
-//						FSDataInputStream in = hdfs.open(srcPath);
-//						in.close();
-//						if(tmpFile.exists()){
-//							pcapFile = tmpFile;
-//							System.out.println("### PCAPFile Received: " + pcapFile.getAbsoluteFile());
-//						}else{
-//							System.out.println("### PCAPFile NotFound Again!!!");
-//						}
+			if(dataDir != null){
+				DistributedFileSystem dfs = (DistributedFileSystem)hdfs;
+				DFSClient dfsClient = HdfsHack.getDFSCLient(dfs);
+				LocatedBlocks blocks = dfsClient.namenode.getBlockLocations(HdfsHack.getPathName(dfs, srcPath), 0, conf.getLong("dfs.block.size", FSConstants.DEFAULT_BLOCK_SIZE));
+				List<LocatedBlock> blockList = blocks.getLocatedBlocks();
+				if(blockList != null && blockList.size() > 0){				
+					for (LocatedBlock locatedBlock : blockList) {
+						String blockName = locatedBlock.getBlock().getBlockName();
+						File tmpFile = new File(dataDir + blockName);
+						if(tmpFile.exists()){
+							pcapFile = tmpFile;
+							LOG.info("### Direct Access ###");
+							LOG.info("### PCAPFile: " + pcapFile.getAbsoluteFile());							
+						}else{
+							LOG.warn("### PCAPFile NotFound Locally ###");							
+						}
 					}
-				}
+				}	
 			}
 		}catch(Exception e){
 			e.printStackTrace();
 		}
 
 		if(pcapFile == null){
-			// Get File Name and Copy to local tmp dir
-			System.out.println("### DFS Access ###");
+			LOG.info("### HDFS Access ###");			
 			StringTokenizer str = new StringTokenizer(value.toString(),"/");
 			String fileName = null;
 			while(str.hasMoreElements()){
@@ -112,10 +108,12 @@ public class JxtaSocketPerfMapper extends Mapper<NullWritable, Text, Text, Sorte
 		generateJxtaStatistics(context,dataFlows,ackFlows);
 		t3 = System.currentTimeMillis();
 
-		System.out.println("### CopyTime: " + (t1-t0));
-		System.out.println("### FlowTime: " + (t3-t2));
-		System.out.println("### CopyTime/FlowTime: " + (t1-t0)/(t3-t2));
-		System.out.println("### CopyTime/TotalTime: " + (t1-t0)/((t1-t0) + (t3-t2)));
+		try{
+			LOG.info("### CopyTime/FlowTime: " + (t1-t0)/(t3-t2));
+			LOG.info("### CopyTime/TotalTime: " + (t1-t0)/((t1-t0) + (t3-t2)));
+		}catch(Exception e){
+			e.printStackTrace();
+		}
 
 		pcap.close();
 	}	
@@ -224,22 +222,22 @@ public class JxtaSocketPerfMapper extends Mapper<NullWritable, Text, Text, Sorte
 		}
 
 		if(uncompleted > 0)
-			System.out.println("### Total Uncompleted Flows = " + uncompleted);
+			LOG.info("### Total Uncompleted Flows = " + uncompleted);
 		if(ackLost > 0)
-			System.out.println("### Ack Expected = " + ackLost);
+			LOG.info("### Ack Expected = " + ackLost);
 
 		try{
 			// Socket Request
 			ctx.write(jxtaSocketReqKey, socReqOutput);
-			System.out.println("### Socket Requests: " + socReqOutput.size());
+			LOG.info("### Socket Requests: " + socReqOutput.size());
 
 			// Socket Response
 			ctx.write(jxtaSocketRemKey, socRemOutput);
-			System.out.println("### Socket Response: " + socRemOutput.size());
+			LOG.info("### Socket Response: " + socRemOutput.size());
 
 			// Arrivals
 			ctx.write(jxtaArrivalKey, arrivalOutput);
-			System.out.println("### Arrivals: " + arrivalOutput.size());
+			LOG.info("### Arrivals: " + arrivalOutput.size());
 
 			// RTT
 			final SortedMapWritable rttOutput = new SortedMapWritable();
@@ -255,7 +253,7 @@ public class JxtaSocketPerfMapper extends Mapper<NullWritable, Text, Text, Sorte
 				rttOutput.put(new LongWritable(time), new LongArrayWritable(fd));				
 			}
 			ctx.write(jxtaRelyRttKey, rttOutput);
-			System.out.println("### Rtts: " + rttOutput.size());			
+			LOG.info("### Rtts: " + rttOutput.size());			
 		}catch(IOException e){
 			e.printStackTrace();
 		}catch (Exception e) {

@@ -57,11 +57,13 @@ public class CountUpDriver {
 			// Reducer			
 			job.setReducerClass(CountUpReducer.class);
 			job.setOutputFormatClass(TextOutputFormat.class);
-			int numNodes = new JobClient(new JobConf()).getClusterStatus().getTaskTrackers();			
-			if(numNodes  > 0){
-				Integer numReduceTasks = new Float(numNodes * 0.95).intValue();
-				job.setNumReduceTasks(numReduceTasks);
-				System.out.println("### Reducers: " + numReduceTasks);
+			if(numNodesStr != null && !numNodesStr.equals("")){
+				int numNodes = Integer.parseInt(numNodesStr);			
+				if(numNodes  > 0){
+					Integer numReduceTasks = new Float(numNodes * 0.95).intValue();
+					job.setNumReduceTasks(numReduceTasks);
+					System.out.println("### Reducers: " + numReduceTasks);
+				}	
 			}
 			Path outputPath = new Path("output/CountUpDriver_" + System.currentTimeMillis());
 			FileOutputFormat.setOutputPath(job, outputPath);
@@ -74,9 +76,9 @@ public class CountUpDriver {
 			times.add(t1 - t0);
 			System.out.println("### " + (++k) + "-Time: " + (t1-t0));	
 		}
-		System.out.println("### Times:");
-		for (Long time : times) {
-			System.out.println(time);
-		}
+//		System.out.println("### Times:");
+//		for (Long time : times) {
+//			System.out.println(time);
+//		}
 	}
 }

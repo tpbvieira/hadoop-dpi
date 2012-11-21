@@ -7,6 +7,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.StringTokenizer;
 
+import jxta.jnetpcap.socket.JxtaSocketPerfMapper;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -29,6 +33,8 @@ import org.jnetpcap.protocol.tcpip.Tcp;
 import org.jnetpcap.protocol.tcpip.Udp;
 
 public class CountUpMapper extends Mapper<NullWritable, Text, IntWritable, LongArrayWritable> {
+	
+	private static final Log LOG = LogFactory.getLog(JxtaSocketPerfMapper.class);
 
 	public void map(NullWritable mapKey, Text value, Context context) throws IOException {		
 		final Context ctx = context;		
@@ -38,35 +44,37 @@ public class CountUpMapper extends Mapper<NullWritable, Text, IntWritable, LongA
 		File pcapFile = null;
 
 		try{
-			System.out.println("### Local FS Access ###");
 			String dataDir = null;
 			String[] dataDirs = conf.getStrings("dfs.data.dir");
 			if(dataDirs != null && dataDirs.length > 0){
 				dataDir = dataDirs[0] + "/current/";
 			}
-			DistributedFileSystem dfs = (DistributedFileSystem)hdfs;
-			DFSClient dfsClient = HdfsHack.getDFSCLient(dfs);
-			LocatedBlocks blocks = dfsClient.namenode.getBlockLocations(HdfsHack.getPathName(dfs, srcPath), 0, conf.getLong("dfs.block.size", FSConstants.DEFAULT_BLOCK_SIZE));
-			List<LocatedBlock> blockList = blocks.getLocatedBlocks();
-			if(dataDir != null && blockList != null && blockList.size() > 0){				
-				for (LocatedBlock locatedBlock : blockList) {
-					String blockName = locatedBlock.getBlock().getBlockName();
-					File tmpFile = new File(dataDir + blockName);
-					if(tmpFile.exists()){
-						pcapFile = tmpFile;
-						System.out.println("### PCAPFile: " + pcapFile.getAbsoluteFile());
-					}else{
-						System.out.println("### PCAPFile NotFound");
+			if(dataDir != null){
+				DistributedFileSystem dfs = (DistributedFileSystem)hdfs;
+				DFSClient dfsClient = HdfsHack.getDFSCLient(dfs);
+				LocatedBlocks blocks = dfsClient.namenode.getBlockLocations(HdfsHack.getPathName(dfs, srcPath), 0, conf.getLong("dfs.block.size", FSConstants.DEFAULT_BLOCK_SIZE));
+				List<LocatedBlock> blockList = blocks.getLocatedBlocks();
+				if(blockList != null && blockList.size() > 0){				
+					for (LocatedBlock locatedBlock : blockList) {
+						String blockName = locatedBlock.getBlock().getBlockName();
+						File tmpFile = new File(dataDir + blockName);
+						if(tmpFile.exists()){
+							pcapFile = tmpFile;
+							LOG.info("### Direct Access ###");
+							LOG.info("### PCAPFile: " + pcapFile.getAbsoluteFile());
+						}else{
+							LOG.info("### PCAPFile NotFound Locally ###");
+						}
 					}
 				}
-			}
+			}			
 		}catch(Exception e){
 			e.printStackTrace();
 		}
 
 		if(pcapFile == null){
 			// Get File Name and Copy to local tmp dir
-			System.out.println("### HDFS Access ###");
+			LOG.info("### HDFS Access ###");
 			StringTokenizer str = new StringTokenizer(value.toString(),"/");
 			String fileName = null;
 			while(str.hasMoreElements()){
@@ -80,7 +88,7 @@ public class CountUpMapper extends Mapper<NullWritable, Text, IntWritable, LongA
 			filePath.append("/");
 			filePath.append(fileName);
 			pcapFile = new File(filePath.toString());	
-			System.out.println("### CopyTime: " + (t1 - t0));
+			LOG.info("### CopyTime: " + (t1 - t0));			
 		}
 
 		// Load file

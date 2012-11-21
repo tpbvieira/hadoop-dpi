@@ -64,12 +64,14 @@ public class JxtaSocketPerfDriver {
 			// Reducer
 			job.setReducerClass(JxtaSocketPerfReducer.class);
 			job.setOutputFormatClass(TextOutputFormat.class);
-			
-			int numNodes = new JobClient(new JobConf()).getClusterStatus().getTaskTrackers();			
-			if(numNodes  > 0){
-				Integer numReduceTasks = new Float(numNodes * 0.95).intValue();
-				job.setNumReduceTasks(numReduceTasks);
-				System.out.println("### Reducers: " + numReduceTasks);
+
+			if(numNodesStr != null && !numNodesStr.equals("")){
+				int numNodes = Integer.parseInt(numNodesStr);			
+				if(numNodes  > 0){
+					Integer numReduceTasks = new Float(numNodes * 0.95).intValue();
+					job.setNumReduceTasks(numReduceTasks);
+					System.out.println("### Reducers: " + numReduceTasks);
+				}	
 			}
 			Path outputPath = new Path("output/JxtaSocketPerfDriver_" + System.currentTimeMillis());
 			FileOutputFormat.setOutputPath(job, outputPath);
@@ -83,13 +85,13 @@ public class JxtaSocketPerfDriver {
 			System.out.println("### " + (k + 1) + "-Time: " + (t1-t0));	
 		}
 
-		System.out.println("### Times:");
-		double total = 0;
-		for (Long time : times) {
-			System.out.println(time);
-			total += time;
-		}
-		System.out.println("### MeanTime: " + (total/k));
+//		System.out.println("### Times:");
+//		double total = 0;
+//		for (Long time : times) {
+//			System.out.println(time);
+//			total += time;
+//		}
+//		System.out.println("### MeanTime: " + (total/k));
 	}
 
 	@SuppressWarnings("unused")
